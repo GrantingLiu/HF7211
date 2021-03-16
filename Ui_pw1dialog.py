@@ -44,7 +44,7 @@ class Ui_Dialog(QDialog):
         self.spinBox.setFont(font)
         self.spinBox.setWrapping(False)
         self.spinBox.setButtonSymbols(QtWidgets.QAbstractSpinBox.UpDownArrows)
-        self.spinBox.setMaximum(2000)
+        self.spinBox.setMaximum(3000)
         self.spinBox.setSingleStep(10)
         self.spinBox.setDisplayIntegerBase(10)
         self.spinBox.setObjectName("spinBox")
