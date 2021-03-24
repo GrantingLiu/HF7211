@@ -52,8 +52,10 @@ def updateUi():
                     print("设置第%d台设备电压为：%s" % (i+1,str(all_volt[i].voltage)))
             all_volt[i].threadLock.release()
         myWin.label_energy.setText(str(energy.energy_value))
-       
-        # 更新继电器1
+        time.sleep(0.5)
+
+def updateUi_relay():
+    while True:
         relay_1.threadLock.acquire()
         myWin.relay_state_1.setText(relay_1.relay_connect_state_1)
         for i in range(0,len(relay_1.relay_1_switch)-2):    # -2是因为最后两个是Q
@@ -66,10 +68,13 @@ def updateUi():
         for i in range(0,len(relay_2.relay_2_switch)):
             myWin.relay[i+8].setChecked(relay_2.relay_2_switch[i])
         relay_2.threadLock.release()
-        time.sleep(0.5)
+        time.sleep(1)
+
 
 # 继电器供电
 def power_relay(num):
+    relay_1.threadLock.acquire()
+    relay_2.threadLock.acquire()
     print("点击了第%d个供电按钮" % (num+1))
     if num < 8 or num > 13:
         print("第1台继电器")
@@ -80,7 +85,7 @@ def power_relay(num):
         num_index = 15
         #relay_2.relay_2_switch[num] = myWin.relay[num].isChecked()
     
-    all_volt[num_index].threadLock.acquire()
+    
     if myWin.relay[num].isChecked():
         does = "[开启]第%d台供电" % (num+1)
         send_order =  myWin.relay_on[num]
@@ -98,20 +103,21 @@ def power_relay(num):
     state = state_1 + state_2
     if state == 0:  # 发送指令失败，按钮要变回原状
         now_state = bool(1-set_button)
-        myWin.relay[num].setChecked(now_state)
         all_volt[num_index].log_data("user","%s失败\n" % (does))
         #print("\n未能%s\n" % (does))
     else:
         print("\n成功%s\n" % (does))
         all_volt[num_index].log_data("user","%s成功\n" % (does))
         now_state = set_button
-    if num < 8 :
+    myWin.relay[num].setChecked(now_state)
+    if num < 8:
         relay_1.relay_1_switch[num] = now_state
     elif num > 13:
         relay_1.relay_1_switch[num-6] = now_state
     else:
         relay_2.relay_2_switch[num-8] = now_state
-    all_volt[num_index].threadLock.release()
+    relay_1.threadLock.release()
+    relay_2.threadLock.release()
 
 # 预燃
 def power_pre(num):
@@ -215,6 +221,88 @@ def temp_volt():
     volt11.data_write("aa 0b f6 cc 33 c3 3c",2)
 
 
+def alloff_def():
+    thread_alloff = threading.Thread(target=alloff,args=(0,))
+    thread_alloff.start()
+
+def alloff(urgency):
+    print("接受到的urgency：",urgency)
+    if urgency == 0:     # 非急停，先关运行再关预燃
+        #self.log_data("user","一键全关\n")
+        for i in range(13,-1,-1):
+            if myWin.on[i].isChecked():
+                time.sleep(2)
+                all_volt[i].threadLock.acquire()
+                all_volt[i].data_write(myWin.on_offorder[i])
+                myWin.on[i].setChecked(False)
+                time.sleep(0.15)
+                all_volt[i].data_write(myWin.on_offorder[i])
+                all_volt[i].threadLock.release()
+        
+
+        if myWin.pre8.isChecked():
+            time.sleep(2)
+            volt8.threadLock.acquire()
+            myWin.pre8.setChecked(False)
+            myWin.on8.setEnabled(False)
+            volt8.data_write("aa 08 10 cc 33 c3 3c")
+            time.sleep(0.15)
+            volt8.data_write("aa 08 10 cc 33 c3 3c")
+            volt8.threadLock.release()
+            
+
+        if myWin.pre1.isChecked():
+            time.sleep(2)
+            volt9.threadLock.acquire()
+            myWin.pre1.setChecked(False)
+            myWin.on1.setEnabled(False)
+            volt1.data_write("aa 01 10 cc 33 c3 3c")
+            time.sleep(0.15)
+            volt1.data_write("aa 01 10 cc 33 c3 3c")
+            volt9.threadLock.release()
+            
+
+        for i in range(13,-1,-1):
+            all_volt[i].threadLock.acquire()
+            all_volt[i].data_write(myWin.on_offorder[i])
+            myWin.on[i].setChecked(False)
+            all_volt[i].threadLock.release()
+
+        # B路六台电源
+        print("检查B路")
+        for i in range(13,7,-1):
+            print("将关闭B路所有电源！！！" )
+            if myWin.relay[i].isChecked():
+                print("将关闭B路第%d台电源" % (i+1))
+                time.sleep(3)
+                all_volt[i].threadLock.acquire()
+                relay_2.relay_2_switch[i-8] = False
+                myWin.relay[i].setChecked(False)
+                relay_2.data_write(myWin.relay_off[i])
+                time.sleep(0.1)
+                relay_2.data_write(myWin.relay_off[i])
+                all_volt[i].threadLock.release()
+            else:
+                print("B路第%d台电源未开启！" % (i+1))
+                pass
+
+
+        print("检查A路")
+        for i in range(7,-1,-1):
+            if myWin.relay[i].isChecked():
+                time.sleep(3)
+                all_volt[i].threadLock.acquire()
+                relay_1.relay_1_switch[i] = False
+                myWin.relay[i].setChecked(False)
+                relay_1.data_write(myWin.relay_off[i])
+                time.sleep(0.1)
+                relay_1.data_write(myWin.relay_off[i])
+                all_volt[i].threadLock.release()
+            else:
+                print("A路第%d台电源未开启！" % (i+1))
+                pass
+
+
 
 
 if __name__ == '__main__':
@@ -240,7 +328,8 @@ if __name__ == '__main__':
     # 继电器
     relay_1 = trans("192.168.1.110", 8800,15)
     relay_2 = trans("192.168.1.136",8816,16)
-    
+
+
 
     all_volt = [volt1,volt2,volt3,volt4,volt5,volt6,volt7,
                 volt8,volt9,volt10,volt11,volt12,volt13,volt14,relay_1,relay_2,energy]
@@ -296,22 +385,32 @@ if __name__ == '__main__':
     myWin.pw_v[2].clicked.connect(lambda:change_power(2))
     myWin.pw_v[3].clicked.connect(lambda:change_power(3))
     myWin.pw_v[4].clicked.connect(lambda:change_power(4))
-    myWin.pw_v[4].clicked.connect(lambda:change_power(5))
-    myWin.pw_v[5].clicked.connect(lambda:change_power(6))
-    myWin.pw_v[6].clicked.connect(lambda:change_power(7))
-    myWin.pw_v[7].clicked.connect(lambda:change_power(8))
-    myWin.pw_v[8].clicked.connect(lambda:change_power(9))
-    myWin.pw_v[9].clicked.connect(lambda:change_power(10))
+    myWin.pw_v[5].clicked.connect(lambda:change_power(5))
+    myWin.pw_v[6].clicked.connect(lambda:change_power(6))
+    myWin.pw_v[7].clicked.connect(lambda:change_power(7))
+    myWin.pw_v[8].clicked.connect(lambda:change_power(8))
+    myWin.pw_v[9].clicked.connect(lambda:change_power(9))
+    #myWin.pw_v[10].clicked.connect(lambda:change_power(10))
     myWin.volt11_send.clicked.connect(temp_volt)
     myWin.pw_v[11].clicked.connect(lambda:change_power(11))
     myWin.pw_v[12].clicked.connect(lambda:change_power(12))
     myWin.pw_v[13].clicked.connect(lambda:change_power(13))
 
+    myWin.off_all.clicked.connect(alloff_def)
+
+
+
 
     thread_updateUi = threading.Thread(target=updateUi)     # 目标函数不能带括号，函数如果有参数要写arg=()
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
-    print("开启UI线程")
+    print("开启更新电源UI线程")
+
+    thread_updateUi = threading.Thread(target=updateUi_relay)     # 目标函数不能带括号，函数如果有参数要写arg=()
+    thread_updateUi.setDaemon(True)
+    thread_updateUi.start()
+    print("开启更新继电器UI线程")
+
 
 
 

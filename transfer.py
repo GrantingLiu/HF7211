@@ -52,13 +52,13 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
         "aa 09 c3 cc 33 c3 3c","aa 0a c3 cc 33 c3 3c","aa 0b c3 cc 33 c3 3c","aa 0c c3 cc 33 c3 3c",
         "aa 0d c3 cc 33 c3 3c","aa 0e c3 cc 33 c3 3c"]    
         if self.number == 15:
+            self.relay_connect_state_1 = "继电器1"
             self.relay_1_switch = [False,False,False,False,False,False,False,False,False,False]
         elif self.number == 16:
+            self.relay_connect_state_2 = "继电器2"
             self.relay_2_switch = [False,False,False,False,False,False]
         else:
             pass
-       
-
         self.timer_stop = QTimer()      # 急停的计时器
 
         # 通信
@@ -95,7 +95,10 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
 
     def update(self):
         while True:
-            time.sleep(1)
+            if self.number == 15 or self.number == 16:
+                time.sleep(3)
+            else:
+                time.sleep(1)
             self.threadLock.acquire()
             if self.number == 17:      # 能量计
                 # 能量计
@@ -131,7 +134,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                         self.energy_value = "重连成功"
                     except:
                         #self.label_energy.setText("连接中断，请检查设备连接")
-                        self.energy_value = "连接中断，请检查设备连接"
+                        self.energy_value = "请检查能量计连接！"
                         #print("连接中断，请检查设备连接")
                     return 0
             elif self.number == 15:     # 第一台继电器，有登录密码
@@ -144,7 +147,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     self.threadLock.release()
                     continue
                 response = self.data_read()
-                print("继电器1读取到：",response)
+                #print("继电器1读取到：",response)
                 self.get_ralay(response,1)
 
             elif self.number == 16:     # 第二台继电器
@@ -176,7 +179,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     continue
                 time.sleep(0.15)
                 response = self.data_read()
-                print("读取电源返回指令：",response)
+                #print("读取电源返回指令：",response)
                 self.search_volt(self.number,response)
             self.threadLock.release()
             
@@ -197,13 +200,13 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
     # 根据继电器返回指令，设置按钮
     def get_ralay(self,order,num):
         if order == "000":
-            print("控制器%s未开启" % num)
+            #print("控制器%s未开启" % num)
             if num == 1:
                 self.relay_connect_state_1 = "请检查继电器1通信连接！ "
             elif num == 2:
                 self.relay_connect_state_2 = "请检查继电器2通信连接！ "
         else:
-            print("控制器%d已开启，返回指令%s：" % (num,order))
+            #print("控制器%d已开启，返回指令%s：" % (num,order))
             for i in range(0,len(order)):
                 if order[i:i+8] == "FE 01 01":
                     self.relay_connect_state_2 = "继电器2通信正常。 "
@@ -215,13 +218,14 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                         bin_relay_state = (8-len(relay_state))*"0" + relay_state
                     else:
                         bin_relay_state = relay_state
-                    print("%d路继电器状态返回指令" % num, bin_relay_state)
+                    #print("%d路继电器状态返回指令" % num, bin_relay_state)
                     for j in range(0,len(bin_relay_state)):
-                        if bin_relay_state[j] == "1":
-                            if j > 1: 
-                                print("控制器%d第%d路继电器已开" % (num,8-j)) 
-                                self.relay_2_switch[7-j] = True
-                                #self.relay[15-j].setChecked(True)       # 继电器状态从低位到高位是从1到8路
+                        state = bool(int(bin_relay_state[j]))
+                        if j > 1:       # 第0和1位是继电器最后两位，暂时没用
+                            #print("控制器%d第%d路继电器已开" % (num,8-j)) 
+                            self.relay_2_switch[7-j] = state
+                            #self.relay[15-j].setChecked(True)       # 继电器状态从低位到高位是从1到8路
+                            
                     break
                 # 继电器1
                 elif order[i:i+17] == "AA 55 00 04 00 8A":
@@ -231,11 +235,12 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     bin_relay_1_state_1 = (8-len(relay_state_1))*"0" + relay_state_1
                     bin_relay_1_state_2 = (8-len(relay_state_2))*"0" + relay_state_2
 
-                    print("%d路继电器1~8路：" % num, bin_relay_1_state_1,",9~16路：",bin_relay_1_state_2)
+                    #print("%d路继电器1~8路：" % num, bin_relay_1_state_1,",9~16路：",bin_relay_1_state_2)
                     for j in range(0,len(bin_relay_1_state_1)):
                         state = bool(int(bin_relay_1_state_1[j]))
                         if bin_relay_1_state_1[j] == "1":
-                            print("控制器%d第%d路继电器已开" % (num,8-j))
+                            #print("控制器%d第%d路继电器已开" % (num,8-j))
+                            pass
                         if j == 0:      # B种子源
                             self.relay_1_switch[7] = state
                             #self.relay8.setChecked(True)
@@ -351,7 +356,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
         for i in range(0, len(rec_data)):                         # 从0到数据长度个元素
             out_s = out_s + '{:02X}'.format(rec_data[i]) + ' '    # 将data中的元素格式化转16进制，2位对齐，左补0，并拼接
         response = out_s
-        print("返回的16进制指令  response =",response)        
+        #print("返回的16进制指令  response =",response)        
         #处理后得到的16进制返回指令
         return response
 
