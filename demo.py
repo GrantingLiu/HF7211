@@ -376,7 +376,7 @@ if __name__ == '__main__':
     myWin.pre8.clicked.connect(lambda:power_pre(7))
 
     # relay 第1~8依次是A路种子源供电（第1台继电器第7位），A路六台电源供电（第1台继电器1到6位），B路种子源供电（第1台继电器第8位），
-    # relay 第9~14是B路六台电源供电（第2台继电器1~6位）
+    # relay 第9~14是B路六台电源供电（第2台继电器1~6位） 
     # relay 第15和16是A、B路的Q
     myWin.relay[0].clicked.connect(lambda:power_relay(0))
     myWin.relay[1].clicked.connect(lambda:power_relay(1))
