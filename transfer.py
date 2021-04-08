@@ -14,6 +14,7 @@ from Ui_control import Ui_control
 from Ui_seaddialog import Ui_seedDialog
 from Ui_pw1dialog import Ui_Dialog
 
+
 threadLock_1 = threading.Lock()
 threadLock_2 = threading.Lock()
 threadLock_3 = threading.Lock()
@@ -98,7 +99,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             if self.number == 15 or self.number == 16:
                 time.sleep(3)
             else:
-                time.sleep(1)
+                time.sleep(0.8)
             self.threadLock.acquire()
             if self.number == 17:      # 能量计
                 # 能量计
@@ -155,7 +156,9 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     self.data_write("FE 01 00 00 00 08 29 C3")
                     time.sleep(0.2)
                     self.relay_connect_state_1 = "继电器2已连接 "
+                    
                 except:
+                    print("尝试重新连接设备%d" % self.number)
                     self.re_connect()
                     self.threadLock.release()
                     self.relay_connect_state_1 = "继电器2发送指令失败 "
@@ -170,17 +173,22 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             else:
                 try:
                     self.data_write(self.volt_index[self.number-1])
-                    time.sleep(0.1)
-                    self.data_write(self.volt_index[self.number-1])
+
+                    #time.sleep(0.1)
+                    #self.data_write(self.volt_index[self.number-1])
+                    #print("设备%d已发送" % self.number)
                 except:
-                    self.re_connect()
-                    self.search_volt(self.number,"000")
-                    self.threadLock.release()
-                    continue
+                    try:
+                        self.data_write(self.volt_index[self.number-1])
+                    except:
+                        self.re_connect()
+                        self.search_volt(self.number,"000")
+                        self.threadLock.release()
+                        continue
                 time.sleep(0.15)
-                response = self.data_read()
-                #print("读取电源返回指令：",response)
-                self.search_volt(self.number,response)
+                get_read = self.data_read()
+                #print("读取电源返回指令：",get_read)
+                self.search_volt(self.number,get_read)
             self.threadLock.release()
             
 
@@ -264,8 +272,17 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
     # 根据电源查询电压的返回指令，设置按钮
     def search_volt(self,num,get_v):
         if get_v == "000":
-            #print("第%d台未读到电压！" % num)
-            self.voltage = "loading"
+            try:
+                time.sleep(0.5)
+                self.data_write(self.volt_index[self.number-1])
+                time.sleep(1)
+                get_read = self.data_read()
+                if get_read == "000":
+                    self.voltage = "loading"
+                else:
+                    self.search_volt(self.number,get_read)
+            except:
+                self.voltage = "loading"
         else:
             for i in range(0,len(get_v)):      
                 if get_v[i:i+2] == "BB" and get_v[i+6:i+20] == "C3 CC 33 C3 3C":
