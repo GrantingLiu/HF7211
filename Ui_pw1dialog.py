@@ -45,7 +45,7 @@ class Ui_Dialog(QDialog):
         self.spinBox.setWrapping(False)
         self.spinBox.setButtonSymbols(QtWidgets.QAbstractSpinBox.UpDownArrows)
         self.spinBox.setMaximum(3000)
-        self.spinBox.setSingleStep(50)
+        self.spinBox.setSingleStep(10)
         self.spinBox.setDisplayIntegerBase(10)
         self.spinBox.setObjectName("spinBox")
         self.label_2 = QtWidgets.QLabel(Dialog)

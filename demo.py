@@ -6,8 +6,7 @@ import subprocess       # 启动新进程，用于CCD
 import time             # 定时器
 from PyQt5.QtWidgets import QApplication,QMainWindow,QDialog,QToolTip,QMessageBox
 from PyQt5.QtCore import pyqtSignal
-from PyQt5 import QtCore,QtGui, QtWidgets
-from PyQt5.QtGui import *
+from PyQt5 import QtCore
 
 from signalslot import slot                   # 信号槽文件
 from transfer import trans                    # 通信文件
@@ -19,11 +18,6 @@ import win32api,win32gui,win32con
 from ctypes import windll
 import subprocess
 import pywintypes
-#from camera import *
-
-import numpy
-
-
 
 # 继承了GUI和信号槽，与通信对象分开
 class soft(QMainWindow,Ui_control,slot):
@@ -40,12 +34,14 @@ class soft(QMainWindow,Ui_control,slot):
         #self.init()                     # 参数初始化、开串口、设置轮询
         self.signalslot()               # 信号槽
 
+
+
 # 更新GUI
 def updateUi():
     print("更新UI界面")
     while True:
         for i in range(0,14):
-            #all_volt[i].threadLock.acquire()
+            all_volt[i].threadLock.acquire()
             if i == 10:
                 # 第10台无法读电压
                 #myWin.volt11_set.setText(str(all_volt[i].voltage))
@@ -54,9 +50,9 @@ def updateUi():
                 myWin.pw_v[i].setText(str(all_volt[i].voltage))
                 if all_volt[i].voltage != "loading":
                     print("设置第%d台设备电压为：%s" % (i+1,str(all_volt[i].voltage)))
-            #all_volt[i].threadLock.release()
+            all_volt[i].threadLock.release()
         myWin.label_energy.setText(str(energy.energy_value))
-        time.sleep(1)
+        time.sleep(0.5)
 
 def updateUi_relay():
     while True:
@@ -65,6 +61,7 @@ def updateUi_relay():
         for i in range(0,len(relay_1.relay_1_switch)-2):    # -2是因为最后两个是Q
             myWin.relay[i].setChecked(relay_1.relay_1_switch[i])
         relay_1.threadLock.release()
+
         relay_2.threadLock.acquire()
         myWin.relay_state_2.setText(relay_2.relay_connect_state_2)
         # 第2台继电器，B路的6台电源
@@ -192,7 +189,7 @@ def change_power(num):
     all_volt[num].threadLock.acquire()
     does = "更改第%d台电压" % (num+1)
     volt_window = Ui_Dialog()
-    if myWin.pw_v[num].text() == "loading":
+    if myWin.pw_v[num].text() == "loading" :
         all_volt[num].log_data("user"," 点击第%d台电压为loading的设备按钮\n" % (num+1))
         print("第%d台未开机" % num)
     else:
@@ -204,7 +201,6 @@ def change_power(num):
         hex_addr = '%02x' % (num+1)
         send_value = "aa "+ hex_addr + "a1 "+ hex_value + " cc 33 c3 3c"
         save_value = "aa "+ hex_addr + "f6 cc 33 c3 3c"
-        all_volt[num].voltage = str(set_value)
         all_volt[num].data_write(send_value)
         time.sleep(0.15)
         all_volt[num].data_write(send_value)
@@ -308,34 +304,6 @@ def alloff(urgency):
 
 
 
-                
-'''
-def CCD():
-    # 枚举设备
-    deviceList = enum_devices(device=0, device_way=False)
-    # 判断不同类型设备
-    identify_different_devices(deviceList)
-    # 因为只用1个CCD，所以nConnectionNum选择第0号
-    #nConnectionNum = input_num_camera(deviceList)
-    nConnectionNum = 0
-    # 创建相机实例并创建句柄(设置日志路径)
-    cam, stDeviceList = creat_camera(deviceList, nConnectionNum, log=True, log_path="D:\\2021_new\\Python")
-    # 打开设备
-    open_device(cam)
-    # 设置各种类型节点参数
-    #set_Value(cam, param_type="bool_value", node_name="TriggerCacheEnable", node_value=1)
-    # 获取各种类型节点参数
-    #get_value = get_Value(cam , param_type = "int_value" , node_name = "PayloadSize")
-    #print("get_value: ",get_value)
-    # 开启取流并获取数据包大小
-    #data_size = start_grab_and_get_data_size(cam)
-    start_grab_and_get_data_size(cam)
-    # 主动图像采集
-    #access_get_image(cam, active_way="getImagebuffer", nPayloadSize=data_size)
-    access_get_image( myWin.label_3.width(),myWin.label_3.height(),cam, active_way="getImagebuffer")
-    # 关闭设备与销毁句柄
-    close_and_destroy_device(cam)
-'''
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -430,26 +398,24 @@ if __name__ == '__main__':
 
     myWin.off_all.clicked.connect(alloff_def)
 
-    # 更新CCD
-    #changePixmap = pyqtSignal(numpy.ndarray)
-    #changePixmap.connect(setImage)
+
+
 
     thread_updateUi = threading.Thread(target=updateUi)     # 目标函数不能带括号，函数如果有参数要写arg=()
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
     print("开启更新电源UI线程")
 
-    thread_updateUi = threading.Thread(target=updateUi_relay)     
+    thread_updateUi = threading.Thread(target=updateUi_relay)     # 目标函数不能带括号，函数如果有参数要写arg=()
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
     print("开启更新继电器UI线程")
 
-    #thread_updateUi = threading.Thread(target=CCD)
-    #thread_updateUi.setDaemon(True)
-    #thread_updateUi.start()
-    #print("开启更新CCD线程")
 
-    sys.exit(app.exec_())
+
+
+
+    sys.exit(app.exec_())    
 
 
 
