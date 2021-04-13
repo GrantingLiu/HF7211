@@ -168,11 +168,12 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                 #print("第11台是无法读到电压的")
                 pass
             else:
-                try:
-                    self.data_write(self.volt_index[self.number-1])
-                    time.sleep(0.1)
-                    self.data_write(self.volt_index[self.number-1])
-                except:
+                
+                state_1 = self.data_write(self.volt_index[self.number-1])
+                time.sleep(0.1)
+                state_2 = self.data_write(self.volt_index[self.number-1])
+                if state_1+state_2 == 0:
+                    print("设备%d重连" % self.number)
                     self.re_connect()
                     self.search_volt(self.number,"000")
                     self.threadLock.release()
@@ -194,7 +195,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             self.client_COM.connect((self.IP, self.port))
             print("第%d台重连成功！！！" % self.number)
         except:
-            #print("第%d台连接中断，请检查设备连接" % self.number)
+            print("第%d台连接中断，请检查设备连接" % self.number)
             pass
 
     # 根据继电器返回指令，设置按钮
@@ -221,7 +222,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     #print("%d路继电器状态返回指令" % num, bin_relay_state)
                     for j in range(0,len(bin_relay_state)):
                         state = bool(int(bin_relay_state[j]))
-                        if j > 1:       # 第0和1位是继电器最后两位，暂时没用
+                        if j > 1:       # 第0和1位是继电器最后两位，暂时没用到
                             #print("控制器%d第%d路继电器已开" % (num,8-j)) 
                             self.relay_2_switch[7-j] = state
                             #self.relay[15-j].setChecked(True)       # 继电器状态从低位到高位是从1到8路
@@ -324,25 +325,22 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
 
     def data_write(self,comm):      #发送指令
         input_s = comm
-        if input_s != "":
-            input_s = input_s.strip()
-            send_list = []
-            while input_s != '':
-                try:
-                    num = int(input_s[0:2], 16)
-                except ValueError:
-                    return 0
-                input_s = input_s[2:].strip()
-                send_list.append(num)
-            input_s = bytes(send_list)
-        else:
-            return 0
+        input_s = input_s.strip()
+        send_list = []
+        while input_s != '':
+            try:
+                num = int(input_s[0:2], 16)
+            except ValueError:
+                return 0
+            input_s = input_s[2:].strip()
+            send_list.append(num)
+        input_s = bytes(send_list)
         try:
             self.client_COM.sendall(input_s)   
             #print("已发送查询指令",input_s)
             return 1
         except:
-            #print("第%d台设备发送指令失败！" % self.number)
+            print("第%d台设备发送指令失败！" % self.number)
             return 0
 
     def data_read(self):

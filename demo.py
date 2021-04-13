@@ -5,8 +5,9 @@ import serial           # 串口通信
 import subprocess       # 启动新进程，用于CCD
 import time             # 定时器
 from PyQt5.QtWidgets import QApplication,QMainWindow,QDialog,QToolTip,QMessageBox
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import QTimer,pyqtSignal
 from PyQt5 import QtCore
+
 
 from signalslot import slot                   # 信号槽文件
 from transfer import trans                    # 通信文件
@@ -30,9 +31,11 @@ class soft(QMainWindow,Ui_control,slot):
 
         time.sleep(0.5)
         self.setupUi(self)    
-    
+
         #self.init()                     # 参数初始化、开串口、设置轮询
         self.signalslot()               # 信号槽
+
+        self.timer_stop = QTimer(self) 
 
 
 
@@ -151,9 +154,11 @@ def power_pre(num):
         myWin.pre[button_num].setChecked(bool(1-set_button))
         all_volt[num].log_data("user","%s失败\n" % (does))
         print("\n未能%s\n" % (does))
+        myWin.volt_state[num].setText("%s失败!" % (does))
     else:
         print("\n成功%s\n" % (does))
         all_volt[num].log_data("user","%s成功\n" % (does))
+        myWin.volt_state[num].setText("un")
         myWin.on[num].setEnabled(set_button)
     all_volt[num].threadLock.release()
 
@@ -177,11 +182,13 @@ def power_on(num):
     state = state_1 + state_2
     if state == 0:  # 发送指令失败，按钮要变回原状
         myWin.on[num].setChecked(bool(1-set_button))
-        all_volt[num].log_data("user","%s第%d台预燃失败\n" % (does,num+1))
+        all_volt[num].log_data("user","%s失败\n" % (does))
         print("\n未能%s\n" % (does))
+        myWin.volt_state[num].setText("%s失败!" % (does))
     else:
         print("\n成功%s\n" % (does))
         all_volt[num].log_data("user","%s成功\n" % (does))
+        myWin.volt_state[num].setText("un")
     all_volt[num].threadLock.release()
 
 # 修改电压
@@ -219,6 +226,62 @@ def temp_volt():
     time.sleep(0.15)
     volt11.data_write(send_value)
     volt11.data_write("aa 0b f6 cc 33 c3 3c",2)
+
+
+# shutter全关全开工作
+def pause(num):
+    for i in range(1,14):
+        if i == 7:
+            continue
+        if num == 1:    #1是全开工作
+            send_order = myWin.on_onorder[i] 
+            does = "[开启]第%d台工作" % (i+1)
+            set_button = True                   # 按钮状态
+        elif num == 2:  #2是全关工作
+            send_order = myWin.on_offorder[i]
+            does = "[关闭]第%d台工作" % (i+1)
+            set_button = False
+
+        all_volt[i].threadLock.acquire()    # 线程锁
+        state_1 = all_volt[i].data_write(send_order)
+        time.sleep(0.1)
+        state_2 = all_volt[i].data_write(send_order)
+        state = state_1 + state_2
+        if state != 0:  # 发送指令成功，按钮变化
+            myWin.on[i].setChecked(set_button)
+            all_volt[i].log_data("user"," 运行总控 %s成功" % (does))
+            myWin.volt_state[i].setText("un")
+        elif state == 0:
+            all_volt[i].log_data("user"," 运行总控 %s失败！！！" % (does))
+            str_text = " 运行总控 %s失败！！！" % (does)
+            myWin.volt_state[i].setText(str_text)
+            state_3 = all_volt[i].data_write(send_order)
+            if state_3 != 0:
+                myWin.on[i].setChecked(set_button)
+                all_volt[i].log_data("user"," 运行总控二次尝试 %s成功" % (does))
+                myWin.volt_state[i].setText("un")
+            elif state_3 == 0:
+                all_volt[i].log_data("user"," 运行总控二次尝试 %s失败！！！" % (does))
+
+            
+        all_volt[i].threadLock.release()    
+
+def stop_judge():
+    myWin.stop_emer.clicked.disconnect(stop_judge)      # 解除原有信号槽。因为都要用到clicked
+    myWin.times = 1  
+    myWin.timer_stop.singleShot(700,lambda:count_stop_judge(myWin.times))   # 定时器触发信号，0.7s后变成触发信号槽
+    myWin.stop_emer.clicked.connect(inclease_times)
+    # self.timer_stop.timeout.connect(lambda:self.count_stop_judge(self.times))      # 计时结束后查看点击次数
+
+def inclease_times():
+    myWin.times += 1
+    if myWin.times == 2:
+        alloff(1)
+
+def count_stop_judge(all_times):
+    print("0.7秒内点击急停次数：",all_times,"\n")
+    myWin.stop_emer.clicked.disconnect(inclease_times)
+    myWin.stop_emer.clicked.connect(stop_judge)
 
 
 def alloff_def():
@@ -302,8 +365,44 @@ def alloff(urgency):
                 print("A路第%d台电源未开启！" % (i+1))
                 pass
 
-
-
+    elif urgency == 1:
+        print("开始发送急停")
+                # B路六台电源
+        print("检查B路")
+        for i in range(13,7,-1):
+            #print("急停关闭B路电源！！！" )
+            if myWin.relay[i].isChecked():
+                time.sleep(0.05)
+                print("急停关闭B路第%d台电源" % (i+1))
+                all_volt[i].threadLock.acquire()
+                relay_2.relay_2_switch[i-8] = False
+                myWin.relay[i].setChecked(False)
+                relay_2.data_write(myWin.relay_off[i])
+                all_volt[i].threadLock.release()
+            else:
+                #print("B路第%d台电源未开启！" % (i+1))
+                pass
+        print("检查A路")
+        for i in range(7,-1,-1):
+            if myWin.relay[i].isChecked():
+                time.sleep(0.05)
+                print("急停关闭A路第%d台电源" % (i+1))
+                all_volt[i].threadLock.acquire()
+                relay_1.relay_1_switch[i] = False
+                myWin.relay[i].setChecked(False)
+                relay_1.data_write(myWin.relay_off[i])
+                all_volt[i].threadLock.release()
+            else:
+                #print("A路第%d台电源未开启！" % (i+1))
+                pass
+        print("急停二次关闭B路电源！！！" )
+        for i in range(13,7,-1):
+            relay_2.data_write(myWin.relay_off[i])
+            time.sleep(0.05)
+        print("急停二次关闭A路电源！！！" )
+        for i in range(7,-1,-1):
+            relay_1.data_write(myWin.relay_off[i])
+            time.sleep(0.05)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
@@ -333,6 +432,8 @@ if __name__ == '__main__':
 
     all_volt = [volt1,volt2,volt3,volt4,volt5,volt6,volt7,
                 volt8,volt9,volt10,volt11,volt12,volt13,volt14,relay_1,relay_2,energy]
+
+    
 
 
     myWin = soft()
@@ -398,6 +499,10 @@ if __name__ == '__main__':
 
     myWin.off_all.clicked.connect(alloff_def)
 
+    myWin.shutter.clicked.connect(lambda:pause(1))
+    myWin.shutter_2.clicked.connect(lambda:pause(2))
+
+    myWin.stop_emer.clicked.connect(stop_judge)  # 急
 
 
 
@@ -410,10 +515,6 @@ if __name__ == '__main__':
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
     print("开启更新继电器UI线程")
-
-
-
-
 
     sys.exit(app.exec_())    
 

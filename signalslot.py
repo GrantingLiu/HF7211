@@ -26,6 +26,11 @@ class slot():
                       self.relay_A_Q,self.relay_B_Q]
         self.shutt = [self.shutter,self.shutter_2]
 
+
+        self.volt_state = [self.VoltState_1,self.VoltState_2,self.VoltState_3,self.VoltState_4,self.VoltState_5,self.VoltState_6,self.VoltState_7,
+                            self.VoltState_8,self.VoltState_9,self.VoltState_10,self.VoltState_11,self.VoltState_12,self.VoltState_13,self.VoltState_14]
+
+
         
         self.on1.setEnabled(False)
         self.on8.setEnabled(False)
