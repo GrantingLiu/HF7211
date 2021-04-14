@@ -25,16 +25,14 @@ class soft(QMainWindow,Ui_control,slot):
     pop_signal = pyqtSignal(str)
     def __init__(self): 
         super(soft,self).__init__()
-        self.number = "exe"
-        trans.log_data(self,"user"," 开启软件-----------------------------\n")
-        trans.log_data(self,"comm"," 开启软件-----------------------------\n")
-
+        self.number = 0
+        self.machine_name = "soft"
+        trans.log_data(self,"user"," 开启软件-----------------------------")
+        trans.log_data(self,"comm"," 开启软件-----------------------------")
         time.sleep(0.5)
-        self.setupUi(self)    
-
+        self.setupUi(self)
         #self.init()                     # 参数初始化、开串口、设置轮询
-        self.signalslot()               # 信号槽
-
+        self.signalslot()                # 信号槽 
         self.timer_stop = QTimer(self) 
 
 
@@ -50,9 +48,20 @@ def updateUi():
                 #myWin.volt11_set.setText(str(all_volt[i].voltage))
                 pass
             else:
-                myWin.pw_v[i].setText(str(all_volt[i].voltage))
-                if all_volt[i].voltage != "loading":
+                # 如果电压数组里是loading，再看对应继电器位是否是false
+
+                    # 电压数组中记录的是loading，且继电器记录状态为false时才说明电源已关闭，再更新按钮为loading
+                if myWin.relay[i].isChecked() == False:
+                    do_what = False
+                    myWin.pw_v[i].setText("loading")
+                    trans.log_data(myWin,"update_volt","更新%s电压值为loading" % (all_volt[i].machine_name))
+                else:
+                    do_what = True
+
+                if do_what and all_volt[i].voltage != "loading":
+                    myWin.pw_v[i].setText(str(all_volt[i].voltage))   # 原本就这一句
                     print("设置第%d台设备电压为：%s" % (i+1,str(all_volt[i].voltage)))
+                    trans.log_data(myWin,"update_volt","更新%s电压值为%s" % (all_volt[i].machine_name,str(all_volt[i].voltage)))
             all_volt[i].threadLock.release()
         myWin.label_energy.setText(str(energy.energy_value))
         time.sleep(0.5)
@@ -63,6 +72,7 @@ def updateUi_relay():
         myWin.relay_state_1.setText(relay_1.relay_connect_state_1)
         for i in range(0,len(relay_1.relay_1_switch)-2):    # -2是因为最后两个是Q
             myWin.relay[i].setChecked(relay_1.relay_1_switch[i])
+            trans.log_data(myWin,"update_relay","更新%s状态:%s" % (str(myWin.relay[i].objectName),str(relay_1.relay_1_switch[i])))
         relay_1.threadLock.release()
 
         relay_2.threadLock.acquire()
@@ -70,6 +80,7 @@ def updateUi_relay():
         # 第2台继电器，B路的6台电源
         for i in range(0,len(relay_2.relay_2_switch)):
             myWin.relay[i+8].setChecked(relay_2.relay_2_switch[i])
+            trans.log_data(myWin,"update_relay","更新%s状态:%s" % (str(myWin.relay[i+8].objectName),str(relay_2.relay_2_switch[i])))
         relay_2.threadLock.release()
         time.sleep(1)
 
@@ -82,12 +93,13 @@ def power_relay(num):
     if num < 8 or num > 13:
         print("第1台继电器")
         num_index = 14
+        machine_name = "relay_1"
         #relay_1.relay_1_switch[num] = myWin.relay[num].isChecked()
     else:
         print("第2台继电器")
         num_index = 15
         #relay_2.relay_2_switch[num] = myWin.relay[num].isChecked()
-    
+        machine_name = "relay_2"
     
     if myWin.relay[num].isChecked():
         does = "[开启]第%d台供电" % (num+1)
@@ -106,11 +118,11 @@ def power_relay(num):
     state = state_1 + state_2
     if state == 0:  # 发送指令失败，按钮要变回原状
         now_state = bool(1-set_button)
-        all_volt[num_index].log_data("user","%s失败\n" % (does))
+        all_volt[num_index].log_data("user","%s失败" % (does))
         #print("\n未能%s\n" % (does))
     else:
         print("\n成功%s\n" % (does))
-        all_volt[num_index].log_data("user","%s成功\n" % (does))
+        all_volt[num_index].log_data("user","%s成功" % (does))
         now_state = set_button
     myWin.relay[num].setChecked(now_state)
     if num < 8:
@@ -145,19 +157,19 @@ def power_pre(num):
         send_order = pre_off_order
         set_button = False
     print("\n尝试%s\n"%(does))
-    all_volt[num].log_data("user","尝试%s\n" % (does))
+    all_volt[num].log_data("user","尝试%s" % (does))
     state_1 = all_volt[num].data_write(send_order)
     time.sleep(0.1)
     state_2 = all_volt[num].data_write(send_order)
     state = state_1 + state_2
     if state == 0:  # 发送指令失败，按钮要变回原状
         myWin.pre[button_num].setChecked(bool(1-set_button))
-        all_volt[num].log_data("user","%s失败\n" % (does))
+        all_volt[num].log_data("user","%s失败" % (does))
         print("\n未能%s\n" % (does))
         myWin.volt_state[num].setText("%s失败!" % (does))
     else:
         print("\n成功%s\n" % (does))
-        all_volt[num].log_data("user","%s成功\n" % (does))
+        all_volt[num].log_data("user","%s成功" % (does))
         myWin.volt_state[num].setText("un")
         myWin.on[num].setEnabled(set_button)
     all_volt[num].threadLock.release()
@@ -182,12 +194,12 @@ def power_on(num):
     state = state_1 + state_2
     if state == 0:  # 发送指令失败，按钮要变回原状
         myWin.on[num].setChecked(bool(1-set_button))
-        all_volt[num].log_data("user","%s失败\n" % (does))
+        all_volt[num].log_data("user","%s失败" % (does))
         print("\n未能%s\n" % (does))
         myWin.volt_state[num].setText("%s失败!" % (does))
     else:
         print("\n成功%s\n" % (does))
-        all_volt[num].log_data("user","%s成功\n" % (does))
+        all_volt[num].log_data("user","%s成功" % (does))
         myWin.volt_state[num].setText("un")
     all_volt[num].threadLock.release()
 
@@ -197,13 +209,13 @@ def change_power(num):
     does = "更改第%d台电压" % (num+1)
     volt_window = Ui_Dialog()
     if myWin.pw_v[num].text() == "loading" :
-        all_volt[num].log_data("user"," 点击第%d台电压为loading的设备按钮\n" % (num+1))
+        all_volt[num].log_data("user"," 点击第%d台电压为loading的设备按钮" % (num+1))
         print("第%d台未开机" % num)
     else:
         volt_window.spinBox.setValue(int(myWin.pw_v[num].text()))
         result = volt_window.exec_()
         set_value = volt_window.spinBox.value()
-        all_volt[num].log_data("user"," 设置第%d台设备电流值为%dA\n" % (num+1,set_value))
+        all_volt[num].log_data("user"," 设置第%d台设备电流值为%dA" % (num+1,set_value))
         hex_value = '%04x' % set_value
         hex_addr = '%02x' % (num+1)
         send_value = "aa "+ hex_addr + "a1 "+ hex_value + " cc 33 c3 3c"
@@ -225,16 +237,20 @@ def temp_volt():
     volt11.data_write(send_value)
     time.sleep(0.15)
     volt11.data_write(send_value)
-    volt11.data_write("aa 0b f6 cc 33 c3 3c",2)
+    volt11.data_write("aa 0b f6 cc 33 c3 3c")
 
 
 # shutter全关全开工作
 def pause(num):
+    if num == 1:
+        trans.log_data(myWin,"user","全开工作")
+    elif num == 2:
+        trans.log_data(myWin,"user","全关工作")
     for i in range(1,14):
         if i == 7:
             continue
         if num == 1:    #1是全开工作
-            send_order = myWin.on_onorder[i] 
+            send_order = myWin.on_onorder[i]
             does = "[开启]第%d台工作" % (i+1)
             set_button = True                   # 按钮状态
         elif num == 2:  #2是全关工作
@@ -259,6 +275,7 @@ def pause(num):
             if state_3 != 0:
                 myWin.on[i].setChecked(set_button)
                 all_volt[i].log_data("user"," 运行总控二次尝试 %s成功" % (does))
+                
                 myWin.volt_state[i].setText("un")
             elif state_3 == 0:
                 all_volt[i].log_data("user"," 运行总控二次尝试 %s失败！！！" % (does))
@@ -291,7 +308,8 @@ def alloff_def():
 def alloff(urgency):
     print("接受到的urgency：",urgency)
     if urgency == 0:     # 非急停，先关运行再关预燃
-        #self.log_data("user","一键全关\n")
+        myWin.off_all.setText("全关中……")
+        trans.log_data(myWin,"user","一键全关")
         for i in range(13,-1,-1):
             if myWin.on[i].isChecked():
                 time.sleep(2)
@@ -349,7 +367,6 @@ def alloff(urgency):
                 print("B路第%d台电源未开启！" % (i+1))
                 pass
 
-
         print("检查A路")
         for i in range(7,-1,-1):
             if myWin.relay[i].isChecked():
@@ -365,7 +382,23 @@ def alloff(urgency):
                 print("A路第%d台电源未开启！" % (i+1))
                 pass
 
+        # 再次全关
+        for i in range(13,7,-1):
+            all_volt[i].threadLock.acquire()
+            relay_2.relay_2_switch[i-8] = False
+            myWin.relay[i].setChecked(False)
+            relay_2.data_write(myWin.relay_off[i])
+            all_volt[i].threadLock.release()
+        for i in range(7,-1,-1):
+            all_volt[i].threadLock.acquire()
+            relay_1.relay_1_switch[i] = False
+            myWin.relay[i].setChecked(False)
+            relay_1.data_write(myWin.relay_off[i])
+            all_volt[i].threadLock.release()
+        myWin.off_all.setText("一键全关")
+
     elif urgency == 1:
+        trans.log_data(myWin,"user","急停")
         print("开始发送急停")
                 # B路六台电源
         print("检查B路")
@@ -406,35 +439,35 @@ def alloff(urgency):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    energy = trans("192.168.1.160",23,17)
+    energy = trans("192.168.1.160",23,17,"energy")
     # 1到14台电源
-    volt1 = trans("192.168.1.121",8801,1)
-    volt2 = trans("192.168.1.122",8802,2)
-    volt3 = trans("192.168.1.123",8803,3)
-    volt4 = trans("192.168.1.124",8804,4)
-    volt5 = trans("192.168.1.125",8805,5)
-    volt6 = trans("192.168.1.126",8806,6)
-    volt7 = trans("192.168.1.127",8807,7)
+    volt1 = trans("192.168.1.121",8801,1,"volt_1")
+    volt2 = trans("192.168.1.122",8802,2,"volt_2")
+    volt3 = trans("192.168.1.123",8803,3,"volt_3")
+    volt4 = trans("192.168.1.124",8804,4,"volt_4")
+    volt5 = trans("192.168.1.125",8805,5,"volt_5")
+    volt6 = trans("192.168.1.126",8806,6,"volt_6")
+    volt7 = trans("192.168.1.127",8807,7,"volt_7")
     
-    volt8 = trans("192.168.1.128",8808,8)
-    volt9 = trans("192.168.1.129",8809,9)
-    volt10 = trans("192.168.1.130",8810,10)
+    volt8 = trans("192.168.1.128",8808,8,"volt_8")
+    volt9 = trans("192.168.1.129",8809,9,"volt_9")
+    volt10 = trans("192.168.1.130",8810,10,"volt_10")
     # 第11台特殊，读不到电压
-    volt11 = trans("192.168.1.131",8811,11)
-    volt12 = trans("192.168.1.132",8812,12)
-    volt13 = trans("192.168.1.133",8813,13)
-    volt14 = trans("192.168.1.134",8814,14)
+    volt11 = trans("192.168.1.131",8811,11,"volt_11")
+    volt12 = trans("192.168.1.132",8812,12,"volt_12")
+    volt13 = trans("192.168.1.133",8813,13,"volt_13")
+    volt14 = trans("192.168.1.134",8814,14,"volt_14")
     # 继电器
-    relay_1 = trans("192.168.1.110", 8800,15)
-    relay_2 = trans("192.168.1.136",8816,16)
-
+    relay_1 = trans("192.168.1.110", 8800,15,"relay_1")
+    relay_2 = trans("192.168.1.136", 8816,16,"relay_2")
+    
 
 
     all_volt = [volt1,volt2,volt3,volt4,volt5,volt6,volt7,
                 volt8,volt9,volt10,volt11,volt12,volt13,volt14,relay_1,relay_2,energy]
 
     
-
+    all_machine = ["volt_1","volt_2","volt_3","volt_4","volt_5","volt_6","volt_7","volt_8","volt_9","volt_10","volt_11","volt_12","volt_13","volt_14"]
 
     myWin = soft()
     
@@ -447,6 +480,7 @@ if __name__ == '__main__':
     # relay 第1~8依次是A路种子源供电（第1台继电器第7位），A路六台电源供电（第1台继电器1到6位），B路种子源供电（第1台继电器第8位），
     # relay 第9~14是B路六台电源供电（第2台继电器1~6位）
     # relay 第15和16是A、B路的Q
+    
     myWin.relay[0].clicked.connect(lambda:power_relay(0))
     myWin.relay[1].clicked.connect(lambda:power_relay(1))
     myWin.relay[2].clicked.connect(lambda:power_relay(2))
@@ -463,7 +497,7 @@ if __name__ == '__main__':
     myWin.relay[13].clicked.connect(lambda:power_relay(13))
     myWin.relay[14].clicked.connect(lambda:power_relay(14))
     myWin.relay[15].clicked.connect(lambda:power_relay(15))
-
+    
     myWin.on[0].clicked.connect(lambda:power_on(0))
     myWin.on[1].clicked.connect(lambda:power_on(1))
     myWin.on[2].clicked.connect(lambda:power_on(2))
@@ -510,12 +544,12 @@ if __name__ == '__main__':
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
     print("开启更新电源UI线程")
-
+    
     thread_updateUi = threading.Thread(target=updateUi_relay)     # 目标函数不能带括号，函数如果有参数要写arg=()
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
     print("开启更新继电器UI线程")
-
+    
     sys.exit(app.exec_())    
 
 

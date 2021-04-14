@@ -38,10 +38,11 @@ threadLock = [threadLock_1,threadLock_2,threadLock_3,threadLock_4,threadLock_5,t
 
 
 class trans(Ui_control):      # 通信类，每一个设备建立一个对象
-    def __init__(self,IP,port,number):     # IP地址，端口号，序号
+    def __init__(self,IP,port,number,machine_name):     # IP地址，端口号，序号
         self.IP = IP
         self.port = port
         self.number = number
+        self.machine_name = machine_name
         self.energy_value = 0
         self.voltage = "loading"
         self.threadLock = threadLock[self.number-1]
@@ -67,8 +68,10 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
         try:
             self.client_COM.connect((self.IP,self.port))        # 连接目标设备
             print("连接%s成功" % self.IP)
+            self.log_data("comm","设备%s连接IP ：%s 成功" % (self.machine_name,self.IP))
         except:
             print("IP %s,第%d号设备连接失败" % (self.IP,self.number))
+            self.log_data("comm","设备%s连接IP ：%s 失败" % (self.machine_name,self.IP))
         # 轮询
         thread_inquiry = threading.Thread(target=self.update)
         thread_inquiry.setDaemon(True)
@@ -84,13 +87,16 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             if state == 0:
                 print("继电器1通信失败")
                 self.relay_connect_state_1 = "请检查继电器1通信连接！"
+                self.log_data("comm","继电器%s通信失败" % (self.machine_name))
                 pass
             else:
                 rec_data = self.data_read()
                 if rec_data == "4F 4B":     # print("A路继电器可通信")
                     self.relay_connect_state_1 = "继电器1已连接 "
+                    self.log_data("comm","继电器%s通信成功" % (self.machine_name))
                 else:
                     self.relay_connect_state_1 = "继电器1连接出错！ "
+                    self.log_data("comm","继电器%s通信成功" % (self.machine_name))
 
 
     def update(self):
@@ -98,7 +104,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             if self.number == 15 or self.number == 16:
                 time.sleep(3)
             else:
-                time.sleep(1)
+                time.sleep(1.5)
             self.threadLock.acquire()
             if self.number == 17:      # 能量计
                 # 能量计
@@ -121,6 +127,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                         str_energy_value = "%.2f" % (eval(instruct[(first_index+2):(len(instruct)-6)])*1000)
                         #print("能量为",str_energy_value,"mJ")
                         self.energy_value = "能量值：%smJ" % str_energy_value
+                        self.log_data("comm","能量值：%smJ" % (str_energy_value))
                         #self.label_energy.setText("能量值：%smJ" % self.energy_value)
                 except:
                     #print("未能读取到能量！可能连接中断")
@@ -132,6 +139,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                         self.client_COM.connect((self.IP, self.port))
                         #print("重连成功！！！")
                         self.energy_value = "重连成功"
+                        self.log_data("comm","能量计重新连接成功 IP：%s" % self.IP)
                     except:
                         #self.label_energy.setText("连接中断，请检查设备连接")
                         self.energy_value = "请检查能量计连接！"
@@ -148,7 +156,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     continue
                 response = self.data_read()
                 #print("继电器1读取到：",response)
-                self.get_ralay(response,1)
+                self.get_ralay(response)
 
             elif self.number == 16:     # 第二台继电器
                 try:
@@ -161,7 +169,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     self.relay_connect_state_1 = "继电器2发送指令失败 "
                     continue
                 response = self.data_read()
-                self.get_ralay(response,2)
+                self.get_ralay(response)
                
             # 电源
             elif self.number == 11:
@@ -173,7 +181,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                 time.sleep(0.1)
                 state_2 = self.data_write(self.volt_index[self.number-1])
                 if state_1+state_2 == 0:
-                    print("设备%d重连" % self.number)
+                    #print("设备%d重连" % self.number)
                     self.re_connect()
                     self.search_volt(self.number,"000")
                     self.threadLock.release()
@@ -195,19 +203,21 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             self.client_COM.connect((self.IP, self.port))
             print("第%d台重连成功！！！" % self.number)
         except:
-            print("第%d台连接中断，请检查设备连接" % self.number)
+            #print("第%d台连接中断，请检查设备连接" % self.number)
             pass
 
     # 根据继电器返回指令，设置按钮
-    def get_ralay(self,order,num):
+    def get_ralay(self,order):
         if order == "000":
-            #print("控制器%s未开启" % num)
-            if num == 1:
+            self.log_data("comm","继电器%s通信失败！" % (self.machine_name))
+            if self.number == 15:
                 self.relay_connect_state_1 = "请检查继电器1通信连接！ "
-            elif num == 2:
+            elif self.number == 16:
                 self.relay_connect_state_2 = "请检查继电器2通信连接！ "
+            self.re_connect()
         else:
-            #print("控制器%d已开启，返回指令%s：" % (num,order))
+            self.log_data("comm","继电器%s返回指令：%s" % ( self.machine_name,order))
+            #print("控制器%d已开启，返回指令%s：" % (self.number,order))
             for i in range(0,len(order)):
                 if order[i:i+8] == "FE 01 01":
                     self.relay_connect_state_2 = "继电器2通信正常。 "
@@ -219,11 +229,11 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                         bin_relay_state = (8-len(relay_state))*"0" + relay_state
                     else:
                         bin_relay_state = relay_state
-                    #print("%d路继电器状态返回指令" % num, bin_relay_state)
+                    #print("%d路继电器状态返回指令" % self.number, bin_relay_state)
                     for j in range(0,len(bin_relay_state)):
                         state = bool(int(bin_relay_state[j]))
                         if j > 1:       # 第0和1位是继电器最后两位，暂时没用到
-                            #print("控制器%d第%d路继电器已开" % (num,8-j)) 
+                            #print("控制器%d第%d路继电器已开" % (self.number,8-j)) 
                             self.relay_2_switch[7-j] = state
                             #self.relay[15-j].setChecked(True)       # 继电器状态从低位到高位是从1到8路
                             
@@ -266,8 +276,10 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
     def search_volt(self,num,get_v):
         if get_v == "000":
             #print("第%d台未读到电压！" % num)
+            self.log_data("comm","设备%s未读到电压！" % self.machine_name)
             self.voltage = "loading"
         else:
+            self.log_data("comm","设备%s返回指令：%s" % (self.machine_name,get_v))
             for i in range(0,len(get_v)):      
                 if get_v[i:i+2] == "BB" and get_v[i+6:i+20] == "C3 CC 33 C3 3C":
                     i += 21
@@ -277,12 +289,13 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                         low_volt = get_v[i+12:i+14]
                         hex_volt = high_volt+low_volt
                         real_v = str(int(hex_volt,16))
-                        #print("得到第%c台电压值：" % addr_v,real_v)
+                        #print("得到%s电压值：" % self.machine_name,real_v)
+                        self.log_data("comm","设备%s电压值：%s" % (self.machine_name,real_v))
                         self.voltage = real_v       # 更新电压值数组
                         i += 33
                     else:
                         print("得到电压返回指令，却未读到电压值！",get_v)
-                        self.log_data("comm"," 获取异常指令为%s\n" % get_v)
+                        self.log_data("comm"," 获取%s异常指令为%s" % (self.machine_name,get_v))
                         i += 3
                         self.voltage = "loading"
                 # 读到继电器的话
@@ -292,19 +305,31 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
 
 
 
-
-    def log_data(self,txt,str1):
+    # 记录在文件夹下的txt文件
+    def log_data(self,txt,str1):        
         now = str(time.strftime("%Y-%m-%d %H:%M:%S  ",time.localtime(time.time())))     # 当下时间
-        name = str(time.strftime("%Y_%m_%d",time.localtime(time.time())))       # 当下日期
+        today = str(time.strftime("%Y_%m_%d",time.localtime(time.time())))       # 当下日期
+        
         if txt == "user":           # 如果记录的是用户的操作
-            file_name = "./log_user/" + name + ".txt"
-        elif txt == "comm":         # 如果记录的是数据
-            file_name = "./log_comm/" + name + ".txt"
+            file_name = "./log_user/" + today + ".txt"
+        elif txt == "comm":         # 如果记录的是轮询得到的数据
+            file_name = "./log_comm/" + today + ".txt"
         else:
             pass
-        user_log = open(file_name,mode = 'a+')    # open打开文件file_name，如果没有此文件，则创建一个新的txt。a+在原有数据的基础上换行继续写入
-        user_log.write(str(self.number)+"  "+ now + str1)        # 写入当下时间，和传递过来的信息
-        user_log.close()
+        if txt == "user" or txt == "comm":
+            user_log = open(file_name,mode = 'a+')    # open打开文件file_name，如果没有此文件，则创建一个新的txt。a+在原有数据的基础上换行继续写入
+            user_log.write(str(self.machine_name)+"  "+ now + str1 + "\n")        # 写入当下时间，和传递过来的信息
+            user_log.close()
+        if txt != "update_volt" and txt != "update_relay":
+            machine_file_name = "./log_machine/" + self.machine_name + "/" +  today +".txt"
+            machine_log = open(machine_file_name,mode = 'a+') 
+            machine_log.write( today + ' ' + now + ' ' + str1 + "\n")
+            machine_log.close()
+        else:
+            machine_file_name = "./log_machine/" + txt + "/" +  today +".txt"
+            machine_log = open(machine_file_name,mode = 'a+') 
+            machine_log.write( today + ' ' + now + ' ' + str1 + "\n")
+            machine_log.close()
 
         
     def get_bytes(self,str):
@@ -340,7 +365,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             #print("已发送查询指令",input_s)
             return 1
         except:
-            print("第%d台设备发送指令失败！" % self.number)
+            #print("第%d台设备发送指令失败！" % self.number)
             return 0
 
     def data_read(self):
