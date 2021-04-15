@@ -42,6 +42,7 @@ class soft(QMainWindow,Ui_control,slot):
 # 更新GUI
 def updateUi():
     print("更新UI界面")
+    set_loading = [0,0,0,0,  0,0,0,0  ,0,0,0,0,  0,0]
     while True:
         for i in range(0,14):
             all_volt[i].threadLock.acquire()
@@ -49,13 +50,20 @@ def updateUi():
                 # 第10台无法读电压
                 #myWin.volt11_set.setText(str(all_volt[i].voltage))
                 pass
-            else:
+            elif all_volt[i].voltage != "loading":
                 myWin.pw_v[i].setText(str(all_volt[i].voltage))
-                if all_volt[i].voltage != "loading":
-                    print("设置第%d台设备电压为：%s" % (i+1,str(all_volt[i].voltage)))
+                set_loading[i] = 0
+            elif all_volt[i].voltage == "loading":
+                set_loading[i] += 1
+                if set_loading[i] >= 2:     # 2次都是loading，则设为loading
+                    myWin.pw_v[i].setText("loading")
+                else:
+                    pass
+            else:
+                pass
             all_volt[i].threadLock.release()
-        myWin.label_energy.setText(str(energy.energy_value))
-        time.sleep(0.5)
+        #myWin.label_energy.setText(str(energy.energy_value))
+        time.sleep(4)
 
 def updateUi_relay():
     while True:
@@ -212,6 +220,7 @@ def change_power(num):
         time.sleep(0.15)
         all_volt[num].data_write(send_value)
         myWin.pw_v[num].setText(str(set_value))   #修改按钮显示电压
+        all_volt[num].voltage = str(set_value)
         time.sleep(0.15)
         all_volt[num].data_write(save_value)
         time.sleep(0.15)
@@ -409,10 +418,10 @@ if __name__ == '__main__':
     energy = trans("192.168.1.160",23,17)
     # 1到14台电源
     volt1 = trans("192.168.1.121",8801,1)
-    volt2 = trans("192.168.1.122",8802,2)
-    volt3 = trans("192.168.1.123",8803,3)
-    volt4 = trans("192.168.1.124",8804,4)
-    volt5 = trans("192.168.1.125",8805,5)
+    volt2 = trans("192.168.0.122",8802,2)
+    volt3 = trans("192.168.0.123",8803,3)
+    volt4 = trans("192.168.0.124",8804,4)
+    volt5 = trans("192.168.0.125",8805,5)
     volt6 = trans("192.168.1.126",8806,6)
     volt7 = trans("192.168.1.127",8807,7)
     
@@ -447,6 +456,7 @@ if __name__ == '__main__':
     # relay 第1~8依次是A路种子源供电（第1台继电器第7位），A路六台电源供电（第1台继电器1到6位），B路种子源供电（第1台继电器第8位），
     # relay 第9~14是B路六台电源供电（第2台继电器1~6位）
     # relay 第15和16是A、B路的Q
+    '''
     myWin.relay[0].clicked.connect(lambda:power_relay(0))
     myWin.relay[1].clicked.connect(lambda:power_relay(1))
     myWin.relay[2].clicked.connect(lambda:power_relay(2))
@@ -463,7 +473,7 @@ if __name__ == '__main__':
     myWin.relay[13].clicked.connect(lambda:power_relay(13))
     myWin.relay[14].clicked.connect(lambda:power_relay(14))
     myWin.relay[15].clicked.connect(lambda:power_relay(15))
-
+    '''
     myWin.on[0].clicked.connect(lambda:power_on(0))
     myWin.on[1].clicked.connect(lambda:power_on(1))
     myWin.on[2].clicked.connect(lambda:power_on(2))
@@ -510,11 +520,12 @@ if __name__ == '__main__':
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
     print("开启更新电源UI线程")
-
+    '''
     thread_updateUi = threading.Thread(target=updateUi_relay)     # 目标函数不能带括号，函数如果有参数要写arg=()
     thread_updateUi.setDaemon(True)
     thread_updateUi.start()
     print("开启更新继电器UI线程")
+    '''
 
     sys.exit(app.exec_())    
 

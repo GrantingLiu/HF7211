@@ -98,7 +98,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             if self.number == 15 or self.number == 16:
                 time.sleep(3)
             else:
-                time.sleep(1)
+                time.sleep(2)
             self.threadLock.acquire()
             if self.number == 17:      # 能量计
                 # 能量计
@@ -170,7 +170,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             else:
                 
                 state_1 = self.data_write(self.volt_index[self.number-1])
-                time.sleep(0.1)
+                time.sleep(0.3)
                 state_2 = self.data_write(self.volt_index[self.number-1])
                 if state_1+state_2 == 0:
                     print("设备%d重连" % self.number)
@@ -178,7 +178,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     self.search_volt(self.number,"000")
                     self.threadLock.release()
                     continue
-                time.sleep(0.15)
+                time.sleep(0.3)
                 response = self.data_read()
                 #print("读取电源返回指令：",response)
                 self.search_volt(self.number,response)
