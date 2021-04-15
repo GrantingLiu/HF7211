@@ -12,7 +12,7 @@ a = Analysis([
 'image_rc.py'],
              pathex=['E:\\Work\\HF7211_Soft_100J_WIFI'],
              binaries=[],
-             datas=[('E:\\Work\\HF7211_Soft_100J_WIFI\\res','res'),('E:\\Work\\HF7211_Soft_100J_WIFI\\log_machine','log_machine'),('E:\\Work\\HF7211_Soft_100J_WIFI\\log_comm','log_comm'),('E:\\Work\\HF7211_Soft_100J_WIFI\\log_user','log_user')],
+             datas=[('E:\\Work\\HF7211_Soft_100J_WIFI\\res','res'),('E:\\Work\\HF7211_Soft_100J_WIFI\\log_comm','log_comm'),('E:\\Work\\HF7211_Soft_100J_WIFI\\log_user','log_user')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
