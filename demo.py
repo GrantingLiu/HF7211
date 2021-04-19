@@ -57,11 +57,12 @@ def updateUi():
                     trans.log_data(myWin,"update_volt","更新%s电压值为loading" % (all_volt[i].machine_name))
                 else:
                     do_what = True
-
                 if do_what and all_volt[i].voltage != "loading":
                     myWin.pw_v[i].setText(str(all_volt[i].voltage))   # 原本就这一句
                     print("设置第%d台设备电压为：%s" % (i+1,str(all_volt[i].voltage)))
                     trans.log_data(myWin,"update_volt","更新%s电压值为%s" % (all_volt[i].machine_name,str(all_volt[i].voltage)))
+                else:
+                    pass
             all_volt[i].threadLock.release()
         myWin.label_energy.setText(str(energy.energy_value))
         time.sleep(0.5)
