@@ -4,53 +4,59 @@ import sys              # 对解释器使用或维护的一些变量的访问
 import serial           # 串口通信
 import subprocess       # 启动新进程，用于CCD
 import time             # 定时器
+
+# 接口等
+import win32api,win32gui,win32con
+from ctypes import windll              
+import subprocess
+import pywintypes
+
+# GUI界面所需组件
 from PyQt5.QtWidgets import QApplication,QMainWindow,QDialog,QToolTip,QMessageBox
 from PyQt5.QtCore import QTimer,pyqtSignal
 from PyQt5 import QtCore
 
 
-from signalslot import slot                   # 信号槽文件
-from transfer import trans                    # 通信文件
-from Ui_control import Ui_control             # 主界面
-from Ui_pw1dialog import Ui_Dialog            # 设置电压的弹出窗口
-import image_rc
+from signalslot import slot                   # 信号槽文件，存放指令和按钮列表
+from transfer import trans                    # 通信文件，定义通信类
+from Ui_control import Ui_control             # 主界面GUI文件
+from Ui_pw1dialog import Ui_Dialog            # 设置电压的弹出窗口的GUI文件
+import image_rc                               # 在Qt配置的图片资源打包调用
 
-import win32api,win32gui,win32con
-from ctypes import windll
-import subprocess
-import pywintypes
 
-# 继承了GUI和信号槽，与通信对象分开
+
+
+
+
+
+
+# 继承了GUI和信号槽的类，作为主窗口
 class soft(QMainWindow,Ui_control,slot):
     pop_signal = pyqtSignal(str)
-    def __init__(self): 
+    def __init__(self):
         super(soft,self).__init__()
         self.number = 0
         self.machine_name = "soft"
         trans.log_data(self,"user"," 开启软件-----------------------------")
         trans.log_data(self,"comm"," 开启软件-----------------------------")
         time.sleep(0.5)
-        self.setupUi(self)
-        #self.init()                     # 参数初始化、开串口、设置轮询
+        self.setupUi(self)               # 主界面
         self.signalslot()                # 信号槽 
-        self.timer_stop = QTimer(self) 
+        self.timer_stop = QTimer(self)   # 急停计时器
 
 
 
 # 更新GUI
 def updateUi():
     print("更新UI界面")
-    while True:
-        for i in range(0,14):
-            all_volt[i].threadLock.acquire()
-            if i == 10:
-                # 第10台无法读电压
-                #myWin.volt11_set.setText(str(all_volt[i].voltage))
+    while True:                 # 无限循环
+        for i in range(0,14):   # 共14台设备
+            all_volt[i].threadLock.acquire()    
+            if i == 10:         # 第10台无法读电压
                 pass
             else:
-                # 如果电压数组里是loading，再看对应继电器位是否是false
-
-                    # 电压数组中记录的是loading，且继电器记录状态为false时才说明电源已关闭，再更新按钮为loading
+                # 如果电压数组里是loading，看对应继电器位是否是false
+                # 电压数组中记录的是loading，且继电器记录状态为false时才说明电源已关闭，再更新按钮为loading
                 if myWin.relay[i].isChecked() == False:
                     do_what = False
                     myWin.pw_v[i].setText("loading")
@@ -64,8 +70,8 @@ def updateUi():
                 else:
                     pass
             all_volt[i].threadLock.release()
-        myWin.label_energy.setText(str(energy.energy_value))
-        time.sleep(0.5)
+        myWin.label_energy.setText(str(energy.energy_value))        # 更新能量计
+        time.sleep(1)     
 
 def updateUi_relay():
     while True:
@@ -439,9 +445,11 @@ def alloff(urgency):
             time.sleep(0.05)
 
 if __name__ == '__main__':
+    # 管理图形用户界面应用程序的控制流和主要设置
     app = QApplication(sys.argv)
+    # trans类，通信对象，每台设备定义一个。
     energy = trans("192.168.1.160",23,17,"energy")
-    # 1到14台电源
+    # 1到14台电源对象，各自独立IP通信，保存数据供主文件调用。
     volt1 = trans("192.168.1.121",8801,1,"volt_1")
     volt2 = trans("192.168.1.122",8802,2,"volt_2")
     volt3 = trans("192.168.1.123",8803,3,"volt_3")
@@ -449,12 +457,10 @@ if __name__ == '__main__':
     volt5 = trans("192.168.1.125",8805,5,"volt_5")
     volt6 = trans("192.168.1.126",8806,6,"volt_6")
     volt7 = trans("192.168.1.127",8807,7,"volt_7")
-    
     volt8 = trans("192.168.1.128",8808,8,"volt_8")
     volt9 = trans("192.168.1.129",8809,9,"volt_9")
     volt10 = trans("192.168.1.130",8810,10,"volt_10")
-    # 第11台特殊，读不到电压
-    volt11 = trans("192.168.1.131",8811,11,"volt_11")
+    volt11 = trans("192.168.1.131",8811,11,"volt_11")    # 第11台故障，读不到电压
     volt12 = trans("192.168.1.132",8812,12,"volt_12")
     volt13 = trans("192.168.1.133",8813,13,"volt_13")
     volt14 = trans("192.168.1.134",8814,14,"volt_14")
@@ -462,15 +468,10 @@ if __name__ == '__main__':
     relay_1 = trans("192.168.1.110", 8800,15,"relay_1")
     relay_2 = trans("192.168.1.136", 8816,16,"relay_2")
     
-
-
     all_volt = [volt1,volt2,volt3,volt4,volt5,volt6,volt7,
                 volt8,volt9,volt10,volt11,volt12,volt13,volt14,relay_1,relay_2,energy]
 
-    
-    all_machine = ["volt_1","volt_2","volt_3","volt_4","volt_5","volt_6","volt_7","volt_8","volt_9","volt_10","volt_11","volt_12","volt_13","volt_14"]
-
-    myWin = soft()
+    myWin = soft()  # 包含GUI和指令的主对象
     
     myWin.show()
 
@@ -551,7 +552,8 @@ if __name__ == '__main__':
     thread_updateUi.start()
     print("开启更新继电器UI线程")
     
-    sys.exit(app.exec_())    
+    # 运行主循环
+    sys.exit(app.exec_())
 
 
 

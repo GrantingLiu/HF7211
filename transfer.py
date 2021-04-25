@@ -36,7 +36,11 @@ threadLock_17 = threading.Lock()
 threadLock = [threadLock_1,threadLock_2,threadLock_3,threadLock_4,threadLock_5,threadLock_6,threadLock_7,threadLock_8,
                 threadLock_9,threadLock_10,threadLock_11,threadLock_12,threadLock_13,threadLock_14,threadLock_15,threadLock_16,threadLock_17]
 
-
+volt_index =  [
+        "aa 01 c3 cc 33 c3 3c","aa 02 c3 cc 33 c3 3c","aa 03 c3 cc 33 c3 3c","aa 04 c3 cc 33 c3 3c",
+        "aa 05 c3 cc 33 c3 3c","aa 06 c3 cc 33 c3 3c","aa 07 c3 cc 33 c3 3c","aa 08 c3 cc 33 c3 3c",
+        "aa 09 c3 cc 33 c3 3c","aa 0a c3 cc 33 c3 3c","aa 0b c3 cc 33 c3 3c","aa 0c c3 cc 33 c3 3c",
+        "aa 0d c3 cc 33 c3 3c","aa 0e c3 cc 33 c3 3c"]
 
 class trans(Ui_control):      # 通信类，每一个设备建立一个对象
     def __init__(self,IP,port,number,machine_name):     # IP地址，端口号，序号，设备名
@@ -46,13 +50,9 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
         self.machine_name = machine_name
         self.energy_value = 0       # 初始化能量计值0
         self.voltage = "loading"    # 初始化电压值显示loading
-        self.threadLock = threadLock[self.number-1]     
+        self.threadLock = threadLock[self.number-1]
         # 电压查询指令
-        self.volt_index =  [
-        "aa 01 c3 cc 33 c3 3c","aa 02 c3 cc 33 c3 3c","aa 03 c3 cc 33 c3 3c","aa 04 c3 cc 33 c3 3c",
-        "aa 05 c3 cc 33 c3 3c","aa 06 c3 cc 33 c3 3c","aa 07 c3 cc 33 c3 3c","aa 08 c3 cc 33 c3 3c",
-        "aa 09 c3 cc 33 c3 3c","aa 0a c3 cc 33 c3 3c","aa 0b c3 cc 33 c3 3c","aa 0c c3 cc 33 c3 3c",
-        "aa 0d c3 cc 33 c3 3c","aa 0e c3 cc 33 c3 3c"]    
+
         if self.number == 15:
             self.relay_connect_state_1 = "继电器1"
             self.relay_1_switch = [False,False,False,False,False,False,False,False,False,False]
@@ -78,15 +78,14 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
         thread_inquiry = threading.Thread(target=self.update)
         thread_inquiry.setDaemon(True)      # 主程序结束时，线程也结束
         thread_inquiry.start()
-        
-
+    
         if self.number == 15:       # 第一台继电器
             # 继电器先发送密码admin/r/n，返回ok（4F 4B）才能通信，若是返回4E 4F说明密码错误
             state_1 = self.data_write("61 64 6D 69 6E 0D 0A") 
             time.sleep(0.1) 
             state_2 = self.data_write("61 64 6D 69 6E 0D 0A")       # 再发一次，确定能查到
             state = state_1 + state_2
-            if state == 0:
+            if state == 0:      # 说明两次尝试通信都失败了，继电器未开机，或电脑没连接对应wifi，或网线接头没插好
                 print("继电器1通信失败")
                 self.relay_connect_state_1 = "请检查继电器1通信连接！"
                 self.log_data("comm","继电器%s通信失败" % (self.machine_name))
@@ -178,9 +177,9 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                 # 第11台是无法读到电压的，电源本身问题
                 pass
             else:
-                state_1 = self.data_write(self.volt_index[self.number-1])
+                state_1 = self.data_write(volt_index[self.number-1])
                 time.sleep(0.1)
-                state_2 = self.data_write(self.volt_index[self.number-1])
+                state_2 = self.data_write(volt_index[self.number-1])
                 if state_1+state_2 == 0:
                     # 如果两次发送指令都失败了，尝试重连
                     self.re_connect()
