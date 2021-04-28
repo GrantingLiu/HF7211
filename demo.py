@@ -24,12 +24,6 @@ from Ui_pw1dialog import Ui_Dialog            # 设置电压的弹出窗口的GU
 import image_rc                               # 在Qt配置的图片资源打包调用
 
 
-
-
-
-
-
-
 # 继承了GUI和信号槽的类，作为主窗口
 class soft(QMainWindow,Ui_control,slot):
     pop_signal = pyqtSignal(str)
@@ -51,93 +45,91 @@ def updateUi():
     print("更新UI界面")
     while True:                 # 无限循环
         for i in range(0,14):   # 共14台设备
-            all_volt[i].threadLock.acquire()    
+            all_volt[i].threadLock.acquire()    # 线程锁
             if i == 10:         # 第10台无法读电压
                 pass
             else:
-                # 如果电压数组里是loading，看对应继电器位是否是false
+                # 如果电压数组里是loading，看该电源对应继电器是否是false
                 # 电压数组中记录的是loading，且继电器记录状态为false时才说明电源已关闭，再更新按钮为loading
                 if myWin.relay[i].isChecked() == False:
-                    do_what = False
-                    myWin.pw_v[i].setText("loading")
+                    do_what = False     # 继电器该路供电是关的
+                    myWin.pw_v[i].setText("loading")        # 则设置电压loading
                     trans.log_data(myWin,"update_volt","更新%s电压值为loading" % (all_volt[i].machine_name))
                 else:
-                    do_what = True
-                if do_what and all_volt[i].voltage != "loading":
-                    myWin.pw_v[i].setText(str(all_volt[i].voltage))   # 原本就这一句
+                    do_what = True      # 若继电器该电源供电已开，说明电源已开启但没读到电压
+                if do_what and all_volt[i].voltage != "loading":    # 电源已开且轮询电压结果不是loading时
+                    myWin.pw_v[i].setText(str(all_volt[i].voltage)) # 按钮显示电压值
                     print("设置第%d台设备电压为：%s" % (i+1,str(all_volt[i].voltage)))
                     trans.log_data(myWin,"update_volt","更新%s电压值为%s" % (all_volt[i].machine_name,str(all_volt[i].voltage)))
                 else:
                     pass
-            all_volt[i].threadLock.release()
+            all_volt[i].threadLock.release()    # 释放线程锁
         myWin.label_energy.setText(str(energy.energy_value))        # 更新能量计
         time.sleep(1)     
 
 def updateUi_relay():
     while True:
-        relay_1.threadLock.acquire()
-        myWin.relay_state_1.setText(relay_1.relay_connect_state_1)
-        for i in range(0,len(relay_1.relay_1_switch)-2):    # -2是因为最后两个是Q
-            myWin.relay[i].setChecked(relay_1.relay_1_switch[i])
-            trans.log_data(myWin,"update_relay","更新%s状态:%s" % (str(myWin.relay[i].objectName),str(relay_1.relay_1_switch[i])))
-        relay_1.threadLock.release()
-
-        relay_2.threadLock.acquire()
-        myWin.relay_state_2.setText(relay_2.relay_connect_state_2)
+        relay_1.threadLock.acquire()        # 线程锁
+        myWin.relay_state_1.setText(relay_1.relay_connect_state_1)      # 更新继电器连接状态（界面下方的文本框）
+        for i in range(0,len(relay_1.relay_1_switch)-2):                # -2是因为继电器最后两个是Q，还没有接上
+            myWin.relay[i].setChecked(relay_1.relay_1_switch[i])        # 更新开关按钮状态
+            trans.log_data(myWin,"update_relay","更新%s状态:%s" % (str(myWin.relay[i].objectName()),str(relay_1.relay_1_switch[i])))
+        relay_1.threadLock.release()        # 释放锁
+        # 继电器2与上面相同
+        relay_2.threadLock.acquire()        
+        myWin.relay_state_2.setText(relay_2.relay_connect_state_2)      
         # 第2台继电器，B路的6台电源
         for i in range(0,len(relay_2.relay_2_switch)):
             myWin.relay[i+8].setChecked(relay_2.relay_2_switch[i])
-            trans.log_data(myWin,"update_relay","更新%s状态:%s" % (str(myWin.relay[i+8].objectName),str(relay_2.relay_2_switch[i])))
+            trans.log_data(myWin,"update_relay","更新%s状态:%s" % (str(myWin.relay[i+8].objectName()),str(relay_2.relay_2_switch[i])))
         relay_2.threadLock.release()
         time.sleep(1)
 
 
 # 继电器供电
 def power_relay(num):
-    relay_1.threadLock.acquire()
-    relay_2.threadLock.acquire()
+    relay_1.threadLock.acquire()    # 继电器1线程锁
+    relay_2.threadLock.acquire()    # 继电器2线程锁
     print("点击了第%d个供电按钮" % (num+1))
-    if num < 8 or num > 13:
+    if num < 8 or num > 13:         # A路7台电源和B路种子源，以及两路的Q（未装）
         print("第1台继电器")
-        num_index = 14
-        machine_name = "relay_1"
-        #relay_1.relay_1_switch[num] = myWin.relay[num].isChecked()
-    else:
+        num_index = 14              # 所有继电器位all_volt列表中的序号
+    else:                           
         print("第2台继电器")
         num_index = 15
-        #relay_2.relay_2_switch[num] = myWin.relay[num].isChecked()
-        machine_name = "relay_2"
-    
-    if myWin.relay[num].isChecked():
-        does = "[开启]第%d台供电" % (num+1)
-        send_order =  myWin.relay_on[num]
-        set_button = True
+
+    if myWin.relay[num].isChecked():        # 若点击后按钮处于开启状态
+        does = "[开启]第%d台供电" % (num+1) 
+        send_order =  myWin.relay_on[num]   # 选择对应开启指令
+        set_button = True                   # 记录当前设置的状态
     else:
-        does = "[关闭]第%d台供电" % (num+1)
-        send_order =  myWin.relay_off[num]
-        set_button = False
+        does = "[关闭]第%d台供电" % (num+1)  # 对应的，若点击后按钮处于关闭状态
+        send_order =  myWin.relay_off[num]  # 选择对应关闭指令
+        set_button = False                  # 记录当前设置的状态
 
     print("\n尝试%s\n"%(does))
     all_volt[num_index].log_data("user","尝试%s" % (does))
-    state_1 = all_volt[num_index].data_write(send_order)
+    state_1 = all_volt[num_index].data_write(send_order)        # 发送指令
     time.sleep(0.1)
-    state_2 = all_volt[num_index].data_write(send_order)
-    state = state_1 + state_2
-    if state == 0:  # 发送指令失败，按钮要变回原状
-        now_state = bool(1-set_button)
+    state_2 = all_volt[num_index].data_write(send_order)        # 二次发送
+    state = state_1 + state_2                                   # 两次发送至少有一次成功则不为0
+    if state == 0:                          # 说明发送指令失败，按钮要变回原状
+        now_state = bool(1-set_button)      # 原状就是前面设置的状态取反
         all_volt[num_index].log_data("user","%s失败" % (does))
         #print("\n未能%s\n" % (does))
     else:
-        print("\n成功%s\n" % (does))
+        print("\n成功%s\n" % (does))        # 发送指令成功
         all_volt[num_index].log_data("user","%s成功" % (does))
-        now_state = set_button
-    myWin.relay[num].setChecked(now_state)
-    if num < 8:
+        now_state = set_button              # 按钮状态为前面设置的状态
+    myWin.relay[num].setChecked(now_state)  # 设置按钮状态
+    # 更新继电器状态列表
+    if num < 8:                             
         relay_1.relay_1_switch[num] = now_state
     elif num > 13:
         relay_1.relay_1_switch[num-6] = now_state
     else:
         relay_2.relay_2_switch[num-8] = now_state
+    # 释放锁
     relay_1.threadLock.release()
     relay_2.threadLock.release()
 
@@ -153,8 +145,7 @@ def power_pre(num):
         pre_on_order = "aa 08 12 cc 33 c3 3c"
         pre_off_order = "aa 08 10 cc 33 c3 3c"
         button_num = 1
-    # 锁住线程，避免和轮询撞
-    all_volt[num].threadLock.acquire()
+    all_volt[num].threadLock.acquire()     # 锁住线程，避免和轮询冲突
     if myWin.pre[button_num].isChecked():  # 开
         does = "[开启]第%d台预燃" % (num+1)
         send_order = pre_on_order

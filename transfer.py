@@ -69,10 +69,10 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
         try:
             self.client_COM.connect((self.IP,self.port))        # 连接目标设备
             print("连接%s成功" % self.IP)
-            self.log_data("comm","设备%s连接IP ：%s 成功" % (self.machine_name,self.IP))
+            self.log_data("comm","初始化  设备%s连接IP ：%s 成功" % (self.machine_name,self.IP))
         except:
             print("IP %s,第%d号设备连接失败" % (self.IP,self.number))
-            self.log_data("comm","设备%s连接IP ：%s 失败" % (self.machine_name,self.IP))
+            self.log_data("comm","初始化  设备%s连接IP ：%s 失败" % (self.machine_name,self.IP))
 
         # 轮询
         thread_inquiry = threading.Thread(target=self.update)
@@ -88,16 +88,16 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
             if state == 0:      # 说明两次尝试通信都失败了，继电器未开机，或电脑没连接对应wifi，或网线接头没插好
                 print("继电器1通信失败")
                 self.relay_connect_state_1 = "请检查继电器1通信连接！"
-                self.log_data("comm","继电器%s通信失败" % (self.machine_name))
+                self.log_data("comm","继电器1通信失败，无法发送密码")
                 pass
             else:
                 rec_data = self.data_read()
                 if rec_data == "4F 4B":     # print("A路继电器可通信")
                     self.relay_connect_state_1 = "继电器1已连接 "
-                    self.log_data("comm","继电器%s通信成功" % (self.machine_name))
+                    self.log_data("comm","继电器1打开成功，密码正确")
                 else:
                     self.relay_connect_state_1 = "继电器1连接出错！ "
-                    self.log_data("comm","继电器%s通信成功" % (self.machine_name))
+                    self.log_data("comm","继电器1打开失败，需要尝试再次输入密码")
 
 
     def update(self):
@@ -111,9 +111,9 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                 # 能量计
                 try:
                     self.client_COM.sendall('$SE\r\n'.encode('utf-8'))      # 发送查询指令
-                    #print("能量计已发送")
+                    content = "发送查询指令成功"
                 except:
-                    #print("能量计发送指令失败！")
+                    content = "发送查询指令失败"
                     pass
                 time.sleep(0.1)
                 try :
@@ -122,28 +122,20 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                     instruct = str(rec_data)
                     first_index = instruct.find("* ")       # 能量计值前面的标志符号
                     if first_index == -1 :
-                        #print("没有得到能量")
-                        self.energy_value = "未查询到能量值数据"
+                        self.energy_value = "通信已连接，未读到能量值"
+                        content = "通信已连接，未读到能量值，返回指令:%s" % instruct
                     else:
                         # 转成保留小数点后两位的浮点数
                         str_energy_value = "%.2f" % (eval(instruct[(first_index+2):(len(instruct)-6)])*1000)        
                         self.energy_value = "能量值：%smJ" % str_energy_value
+                        content = "能量值：%s mJ" % (str_energy_value)
                         self.log_data("comm","能量值：%smJ" % (str_energy_value))
-                        #self.label_energy.setText("能量值：%smJ" % self.energy_value)
                 except:
-                    # 断掉连接
-                    self.client_COM.close()
-                    try:
-                        # 重新建立连接
-                        self.client_COM = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        self.client_COM.settimeout(0.15)
-                        self.client_COM.connect((self.IP, self.port))
-                        self.energy_value = "重连成功"
-                        self.log_data("comm","能量计重新连接成功 IP：%s" % self.IP)
-                    except:
-                        # 无法重连
-                        self.energy_value = "请检查能量计连接！"
-                    return 0
+                    # 重连
+                    self.re_connect()
+                    content = "重新连接"
+                
+
             elif self.number == 15:     # 第一台继电器，有登录密码
                 # 继电器1到10路对应10台设备，依次是A路种子源，A路6台电源，B路种子源，A路Q，B路Q
                 try:
@@ -153,6 +145,7 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                 except:
                     # 发送指令失败，尝试重连，并结束本次循环。注意结束循环之前要释放线程锁
                     self.re_connect()
+                    self.data_write("61 64 6D 69 6E 0D 0A")
                     self.threadLock.release()
                     continue
                 response = self.data_read()
@@ -163,11 +156,11 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                 try:
                     self.data_write("FE 01 00 00 00 08 29 C3")
                     time.sleep(0.2)
-                    self.relay_connect_state_1 = "继电器2已连接 "
+                    self.relay_connect_state_2 = "继电器2已连接 "
                 except:
                     self.re_connect()
                     self.threadLock.release()
-                    self.relay_connect_state_1 = "继电器2发送指令失败 "
+                    self.relay_connect_state_2 = "继电器2发送指令失败 "
                     continue
                 response = self.data_read()
                 self.get_ralay(response)
@@ -223,7 +216,8 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
         else:
             self.log_data("comm","继电器%s返回指令：%s" % ( self.machine_name,order))
             #print("控制器%d已开启，返回指令%s：" % (self.number,order))
-            for i in range(0,len(order)):
+            for i in range(0,len(order),3):
+                # 继电器2
                 if order[i:i+8] == "FE 01 01":
                     self.relay_connect_state_2 = "继电器2通信正常。 "
                     relay_state = str(bin(int(order[i+9:i+11],16))[2:])  
@@ -239,7 +233,6 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                         if j > 1:       # 第0和1位是继电器最后两位，暂时没用到
                             # 记录在状态数组，由主文件update统一更新
                             self.relay_2_switch[7-j] = state
-
                     break
                 # 继电器1
                 elif order[i:i+17] == "AA 55 00 04 00 8A":
@@ -274,6 +267,14 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
                             self.relay_1_switch[9] = state
                             #self.relay_B_Q.setChecked(True) 
                     break
+                elif order[i:i+5] == "4E 4F":
+                    self.log_data("comm","继电器1通信密码错误：%s" % (order))
+                    self.data_write("61 64 6D 69 6E 0D 0A")
+                    time.sleep(0.1)
+                    break
+                else:
+                    continue
+
 
     # 根据电源查询电压的返回指令，设置按钮
     def search_volt(self,num,get_v):
@@ -309,29 +310,37 @@ class trans(Ui_control):      # 通信类，每一个设备建立一个对象
 
 
     # 记录在文件夹下的txt文件
-    def log_data(self,txt,str1):        
+    def log_data(self,mode,content):        
         now = str(time.strftime("%Y-%m-%d %H:%M:%S  ",time.localtime(time.time())))     # 当下时间
         today = str(time.strftime("%Y_%m_%d",time.localtime(time.time())))       # 当下日期
-        
-        if txt == "user":           # 如果记录的是用户的操作
+        # 所有记录
+        LogAllFile =  "./LogAll/" + today + ".txt"
+        LogAll = open(LogAllFile,mode = 'a+')
+        LogAll.write(str(self.machine_name)+"  "+ now + content + "\n")
+        LogAll.close()
+
+        if mode == "user":           # 如果记录的是用户的操作
             file_name = "./log_user/" + today + ".txt"
-        elif txt == "comm":         # 如果记录的是轮询得到的数据
+        elif mode == "comm":         # 如果记录的是轮询得到的数据
             file_name = "./log_comm/" + today + ".txt"
         else:
             pass
-        if txt == "user" or txt == "comm":
+
+        # 按照用户操作和轮询分别记录
+        if mode == "user" or mode == "comm":
             user_log = open(file_name,mode = 'a+')    # open打开文件file_name，如果没有此文件，则创建一个新的txt。a+在原有数据的基础上换行继续写入
-            user_log.write(str(self.machine_name)+"  "+ now + str1 + "\n")        # 写入当下时间，和传递过来的信息
+            user_log.write(str(self.machine_name)+"  "+ now + content + "\n")        # 写入当下时间，和传递过来的信息
             user_log.close()
-        if txt != "update_volt" and txt != "update_relay":
+        # 每一台机器单独记录数据
             machine_file_name = "./log_machine/" + self.machine_name + "/" +  today +".txt"
             machine_log = open(machine_file_name,mode = 'a+') 
-            machine_log.write( today + ' ' + now + ' ' + str1 + "\n")
+            machine_log.write( today + ' ' + now + ' ' + content + "\n")
             machine_log.close()
-        else:
-            machine_file_name = "./log_machine/" + txt + "/" +  today +".txt"
+        # 记录每一次主文件中界面更新时的数据
+        else:       
+            machine_file_name = "./log_machine/" + mode + "/" +  today +".txt"
             machine_log = open(machine_file_name,mode = 'a+') 
-            machine_log.write( today + ' ' + now + ' ' + str1 + "\n")
+            machine_log.write( today + ' ' + now + ' ' + content + "\n")
             machine_log.close()
 
         

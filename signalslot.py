@@ -10,14 +10,13 @@ from  Ui_control import Ui_control
 
 class slot():
     def signalslot(self):
-
+        # 预燃按钮
         self.pre = [self.pre1,self.pre8]
-
+        # 工作按钮
         self.on=[self.on1,self.on2,self.on3,self.on4,self.on5,self.on6,self.on7,self.on8,
                     self.on9,self.on10,self.on11,self.on12,self.on13,self.on14]
 
-
-        # 电压按钮。注意第11台电源没有定义对象，其他程序处要避开
+        # 电压按钮。注意第11台电源没有定义对象，其他程序要避开self.pw_v[10]
         self.pw_v=[self.pw1_v_send,self.pw2_v_send,self.pw3_v_send,self.pw4_v_send,
                     self.pw5_v_send,self.pw6_v_send,self.pw7_v_send,self.pw8_v_send,
                     self.pw9_v_send,self.pw10_v_send,1,self.pw12_v_send,
