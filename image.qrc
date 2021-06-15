@@ -1,5 +1,7 @@
 <RCC>
   <qresource prefix="pic">
+    <file>res/connect_false.png</file>
+    <file>res/connect_true.png</file>
     <file>res/logo2.jpg</file>
     <file>res/btn_on_hover.png</file>
     <file>res/btn_off.png</file>

@@ -27,12 +27,12 @@ class slot():
                       self.relay8,self.relay9,self.relay10,self.relay11,self.relay12,self.relay13,self.relay14,
                       self.relay_A_Q,self.relay_B_Q]
 
+        # 电源文本
+        self.volt_text = [self.pw1_test,self.pw2_test,self.pw3_test,self.pw4_test,self.pw5_test,self.pw6_test,self.pw7_test,
+                          self.pw8_test,self.pw9_test,self.pw10_test,self.pw11_test,self.pw12_test,self.pw13_test,self.pw14_test,]
+
         # shutter按钮
         self.shutt = [self.shutter,self.shutter_2]
-
-        # 电压状态文本框
-        self.volt_state = [self.VoltState_1,self.VoltState_2,self.VoltState_3,self.VoltState_4,self.VoltState_5,self.VoltState_6,self.VoltState_7,
-                            self.VoltState_8,self.VoltState_9,self.VoltState_10,self.VoltState_11,self.VoltState_12,self.VoltState_13,self.VoltState_14]
 
         # 种子源的工作按钮初始化关闭
         self.on1.setEnabled(False)
@@ -45,7 +45,7 @@ class slot():
                     "aa 09 12 cc 33 c3 3c","aa 0a 12 cc 33 c3 3c","aa 0b 12 cc 33 c3 3c","aa 0c 12 cc 33 c3 3c",
                     "aa 0d 12 cc 33 c3 3c","aa 0e 12 cc 33 c3 3c"]
 
-        # 关预燃指令
+        # 关预燃指令    
         self.pre_offorder = ["aa 01 10 cc 33 c3 3c","aa 02 10 cc 33 c3 3c","aa 03 10 cc 33 c3 3c","aa 04 10 cc 33 c3 3c",
                     "aa 05 10 cc 33 c3 3c","aa 06 10 cc 33 c3 3c","aa 07 10 cc 33 c3 3c","aa 08 10 cc 33 c3 3c",
                     
